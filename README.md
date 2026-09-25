@@ -1,26 +1,41 @@
-# 案款手機記帳試用版
+# 案款手機記帳
 
-純 HTML、CSS、JavaScript 互動原型。`dist` 是網站檔案，支援 GitHub Pages 或任一靜態主機。
+手機優先的公司案件記帳介面。款項當事人與登入登記者分開，每人每案獨立計算。
 
-## 現有功能
+## 目前交付
 
-示範入口、分案個人餘額、記帳、照片壓縮與預覽、待補件篩選、補收據、装置本機保存、重設示範資料。
+- 手機與電腦版 UI、自訂暱稱、代同事記帳、同事名單、公司給款。
+- 每筆最多五張收據、前端壓縮、預覽、移除及事後補件。
+- Google OAuth 網頁後端、PKCE、nonce、ID token 驗證、HttpOnly 登入 Cookie。
+- 管理者核准的登入名單，核准成員能查看與代記公司案件，公司給款限管理者。
+- 帶簽章的 Apps Script 同步端點、鎖定寫入、交易編號防重、私人 Drive 收據與 Sheets 內嵌相簿。
 
-所有人名、案件與金額皆為示範。Google 登入按鈕明確停用，沒有 OAuth 或 Sheets 連線。無正式公司資料或金鑰。預覽主機的存取登入與日後公司 Google 登入是不同流程。
+## 實際狀態
 
-## 預覽
+Sites 預覽網址是裝置本機示範模式。Google OAuth 與 Apps Script 尚未配置正式帳號，沒有向正式 Sheets 寫入試用帳。不能把示範登入視為 Google 已登入。
 
-以任意靜態 HTTP 伺服器提供 `dist/`。不需安裝套件或編譯。Google Fonts 無法載入時回退至系統字型。
+Node 後端與 Apps Script 原始碼已完成初版，10 項核心與模擬帳本測試通過。正式 OAuth、Drive 與 Sheets 串接尚待管理者設定及端到端驗收。模擬測試不代表 Google 端已通過驗收。
 
-## 正式串接下一階段
+詳細設定見 GOOGLE-SETUP.md。先由管理者建立 Google Cloud OAuth 網頁用戶端，再部署 Apps Script。下載的 OAuth JSON 不提交 GitHub。
 
-1. 設定 Google OAuth 網頁應用程式與正式網域。
-2. 後端驗證 Google ID token 的 audience、issuer、expiry 與 email_verified，使用穩定 sub 綁定員工。
-3. 後端維護員工、案件與管理者權限，不採用前端傳入的姓名作授權依據。
-4. 後端保存 Google API 憑證，限制授權帳本，讀寫現有案件頁 A:J，第 13 列起為交易資料。不得覆蓋 K:M 公式。
-5. 給款僅限管理者。申請者、實際付款人與交易 ID 分開記錄，伺服器時間留痕。
-6. 每筆使用唯一交易 ID，重試不得重複入帳。寫入與編輯須序列化，處理照片成功但寫帳失敗的補償流程。
-7. Drive 存收據，Sheets 存檔案連結。每案每人的餘額獨立計算，憑證核准不視為付款。
-8. 正式版不沿用本機示範資料。不把帳本或管理密鑰放 GitHub 公開檔案。
+## 本機
 
-目前尚未推送至使用者 GitHub。Sites 私人預覽僅用於版面與流程評估。
+Node 24 以上。npm ci、npm test、npm start。預設為示範模式。
+
+要試正式連線，將 .env.example 複製為 .env 並填入設定。APP_MODE=live 會關閉示範登入，沒有憑證時明確停用 Google 登入。
+
+## 結構
+
+- dist/：靜態 UI，單獨託管時為示範版。
+- server/：Google 登入、權限、個人暱稱、Apps Script 安全串接。
+- google-apps-script/：Sheets 與 Drive 同步程式。
+- tests/：身分分離、金額、簽章、照片驗證與重試防重測試。
+- Dockerfile：正式 Node 主機部署入口，/app/data 必須掛持久磁碟。
+
+GitHub 保存程式。正式版需要 Node 後端主機，不是單獨 GitHub Pages。Sites 私人預覽與正式 Google 登入站分開。n8n 不是必要依賴。
+
+## 資料約定
+
+暱稱綁 Google sub，不作帳務人員的主鍵。人員有穩定 ID。交易身分與登記者寫入日期儲存格的附註，避免放在表格外的固定欄位後，因表格排序導致錯配。Sheets 直接填入的舊紀錄仍能讀取，舊紀錄補照片先由管理者在 Sheets 處理。
+
+圖片採私人 Drive 檔案及 Sheets Blob 嵌入，不用暫時性 IMAGE 連結。相簿為固定照片排列，不要手動排序相簿。初版不提供已核准交易的刪除、更正或完整審核工作台。

@@ -2,3 +2,8 @@
 *.zip
 node_modules/
 .sites-runtime/
+.env
+.env.*
+!.env.example
+data/
+*.sqlite*
