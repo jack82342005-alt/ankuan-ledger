@@ -10,9 +10,16 @@ function doPost(e) {
   try {
     const env=PropertiesService.getScriptProperties();
     const req=JSON.parse(e.postData.contents);
-    verifyRequest_(req,env.getProperty('BRIDGE_SECRET'));
-    const payload=JSON.parse(Utilities.newBlob(Utilities.base64Decode(req.payload)).getDataAsString('UTF-8'));
-    if(!payload.actor || !payload.actor.email || !payload.actor.id) throw Error('缺少已驗證身分。');
+    let payload;
+    if(req.accessKey){
+      verifyPublicAccess_(req.accessKey,env.getProperty('PUBLIC_ACCESS_KEY'));
+      payload={action:req.action,data:req.data||{},actor:req.actor||{}};
+      payload.actor={id:'shared-link',email:'shared-link@local.invalid',nickname:text_(payload.actor.nickname||'未命名登記者',30),role:'admin'};
+    }else{
+      verifyRequest_(req,env.getProperty('BRIDGE_SECRET'));
+      payload=JSON.parse(Utilities.newBlob(Utilities.base64Decode(req.payload)).getDataAsString('UTF-8'));
+      if(!payload.actor || !payload.actor.email || !payload.actor.id) throw Error('缺少已驗證身分。');
+    }
     lock=LockService.getScriptLock();if(!lock.tryLock(25000))throw Error('帳本忙碌中，請保留表單稍後重試。');
     const book=SpreadsheetApp.openById(env.getProperty('SPREADSHEET_ID'));
     let result;
@@ -29,6 +36,9 @@ function doPost(e) {
   finally{if(lock)lock.releaseLock();}
 }
 function json_(value){return ContentService.createTextOutput(JSON.stringify(value)).setMimeType(ContentService.MimeType.JSON);}
+function verifyPublicAccess_(provided,expected){
+  if(!expected||expected.length<32||typeof provided!=='string'||provided.length>200||provided!==expected)throw Error('共用連結已失效。');
+}
 function verifyRequest_(r,secret){
   if(!secret||secret.length<32)throw Error('尚未設定同步密鑰。');
   if(!Number.isFinite(r.ts)||Math.abs(Date.now()-r.ts)>120000||typeof r.nonce!=='string'||!/^[\w-]{20,100}$/.test(r.nonce)||typeof r.payload!=='string'||r.payload.length>19000000)throw Error('同步驗證已失效。');

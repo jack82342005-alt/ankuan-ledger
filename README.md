@@ -12,9 +12,11 @@
 
 ## 實際狀態
 
-Sites 預覽網址是裝置本機示範模式。Google OAuth 與 Apps Script 尚未配置正式帳號，沒有向正式 Sheets 寫入試用帳。不能把示範登入視為 Google 已登入。
+2026-09-26：本機正式模式已完成管理者 Google 登入，並讀取正式 Sheets 的 2 個案件、2 位款項人員與 7 筆紀錄。
 
-Node 後端與 Apps Script 原始碼已完成初版，10 項核心與模擬帳本測試通過。正式 OAuth、Drive 與 Sheets 串接尚待管理者設定及端到端驗收。模擬測試不代表 Google 端已通過驗收。
+獨立私人驗收副本已通過帶簽章寫入、款項人與登記者分離、Drive JPEG 保存、Sheets 收據相簿內嵌圖片、照片讀回及相同交易重送不重複。測試紀錄未寫入正式帳本，連線已恢復正式帳本。
+
+公開 Sites 試用網址仍為本機示範資料模式，尚未部署正式 Node 主機或推送公司 GitHub。手機實機拍照、Sheets 原生排序後補件，以及完整網站表單寫入驗收仍待完成。
 
 詳細設定見 GOOGLE-SETUP.md。先由管理者建立 Google Cloud OAuth 網頁用戶端，再部署 Apps Script。下載的 OAuth JSON 不提交 GitHub。
 
@@ -32,7 +34,7 @@ Node 24 以上。npm ci、npm test、npm start。預設為示範模式。
 - tests/：身分分離、金額、簽章、照片驗證與重試防重測試。
 - Dockerfile：正式 Node 主機部署入口，/app/data 必須掛持久磁碟。
 
-GitHub 保存程式。正式版需要 Node 後端主機，不是單獨 GitHub Pages。Sites 私人預覽與正式 Google 登入站分開。n8n 不是必要依賴。
+免登入版由 GitHub Pages 發布靜態網頁，資料經 Apps Script 寫入 Sheets，照片存入私人 Drive 資料夾。完整網址的井字號後方帶有共用通行碼，通行碼不寫入 GitHub。n8n 不是必要依賴。
 
 ## 資料約定
 

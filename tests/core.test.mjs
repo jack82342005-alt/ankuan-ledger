@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createHmac} from 'node:crypto';
 import {validateEntry,validatePhotos,signBridge,validName} from '../server/core.mjs';
 const actor={id:'google-sub',nickname:'Jack',email:'owner@example.com',role:'member'};
-const base={id:'12345678-1234-1234-1234-123456789012',project:'案件001',payerId:'other-colleague',type:'expense',amount:2000,date:'2026-01-01',desc:'交通費',category:'交通',payment:'現金',photos:[]};
+const base={id:'12345678-1234-1234-1234-123456789012',project:'案件001',payerId:'other-colleague',type:'expense',amount:2000,date:'2026-01-01',desc:'交通費',category:'交通住宿',payment:'現金',photos:[]};
 test('records the selected payer independently from trusted login identity',()=>{const entry=validateEntry({...base,recorder:'冒用身分',recorderEmail:'attacker@example.com'},actor);assert.equal(entry.payerId,'other-colleague');assert.equal(entry.recorder,'Jack');assert.equal(entry.recorderEmail,actor.email)});
 test('blocks company funds for a normal member',()=>{assert.throws(()=>validateEntry({...base,type:'fund'},actor),/管理者/);assert.equal(validateEntry({...base,type:'fund'},{...actor,role:'admin'}).type,'fund')});
 test('rejects invalid money and nonexistent dates',()=>{for(const amount of [0,-1,NaN,Infinity,1.001,100000000])assert.throws(()=>validateEntry({...base,amount},actor));assert.throws(()=>validateEntry({...base,date:'2026-02-30'},actor));assert.equal(validateEntry({...base,amount:0.29},actor).amount,.29)});

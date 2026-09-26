@@ -1,6 +1,6 @@
 # Google 登入與 Sheets 連線設定
 
-目前 UI、Node 後端及 Apps Script 同步程式已完成初版，尚未配置正式 Google 憑證或部署 Apps Script。正式 Google 登入、Drive 上傳及 Sheets 寫入仍須實機驗收。
+2026-09-26：Apps Script 已設定。免登入版由 GitHub Pages 發布，完整網址帶有共用通行碼。獨立副本的照片嵌入、Drive 讀回及交易重送驗收已通過。
 
 管理者：jack82342005@gmail.com。先確認這個帳號對目標 Sheets 有編輯權限。
 
@@ -52,7 +52,7 @@ npm start
 
 ## 4. GitHub 與正式主機
 
-GitHub 保存整份程式。正式版需要執行 Node 後端及保留 `data/app.sqlite` 的主機，不能僅靠 GitHub Pages。靜態 Sites 試用連結仍是示範版，不是 Google 正式登入站。
+GitHub 保存整份程式並發布 `dist` 靜態網頁。Apps Script 負責 Sheets 與 Drive。Node 登入後端保留在專案內，免登入版不依賴該後端。
 
 主機需 HTTPS、持久磁碟、秘密變數與定期備份。單一 Node 執行個體搭配 SQLite。把 `PUBLIC_ORIGIN` 設為正式網址，`HOST=0.0.0.0`。多人寫入 Sheets 由 Apps Script 鎖定序列處理。
 
