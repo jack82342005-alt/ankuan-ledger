@@ -103,6 +103,7 @@ function recordResult_(data,m){return{...data,recorder:m[4],photos:JSON.parse(m[
 function photoSheet_(book){let s=book.getSheetByName(PHOTO_SHEET);if(!s){s=book.insertSheet(PHOTO_SHEET);s.appendRow(['交易編號','案件','日期','款項當事人','事由','金額','收據檔','收據照片','檔案編號']);s.setFrozenRows(1);s.getRange(1,1,1,9).setBackground('#173c46').setFontColor('#ffffff').setFontWeight('bold');s.setColumnWidth(8,200);s.setColumnWidth(5,200);s.setColumnWidth(7,170);s.hideColumns(9);s.getRange('A1').setNote('相簿照片固定附在各列。請從案件頁或網站篩選交易，不要直接排序相簿。');}return s;}
 function projectFolderName_(book,projectId){const project=projects_(book).find(p=>p.id===projectId),label=project&&project.name&&project.name!==projectId?projectId+'｜'+project.name:projectId;return String(label).replace(/[\\/:*?"<>|#%\u0000-\u001f\u007f]/g,'_').slice(0,120);}
 function receiptFolder_(book,projectId,env){const root=DriveApp.getFolderById(env.getProperty('RECEIPT_FOLDER_ID')),name=projectFolderName_(book,projectId),folders=root.getFoldersByName(name);return folders.hasNext()?folders.next():root.createFolder(name);}
+function setupReceiptFolders(){const env=PropertiesService.getScriptProperties(),book=SpreadsheetApp.openById(env.getProperty('SPREADSHEET_ID'));return projects_(book).map(project=>receiptFolder_(book,project.id,env).getId());}
 function savePhotos_(book,id,photos,data,payer,env){
   if(!Array.isArray(photos)||photos.length>5)throw Error('每筆最多 5 張照片。');if(!photos.length)return[];
   const folder=receiptFolder_(book,data.project,env),gallery=photoSheet_(book),files=[];
