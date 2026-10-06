@@ -69,7 +69,7 @@ async function saveEntry(e){
  let payer=people.find(p=>p.name===d.payerName.trim());
  if(!payer){payer=live?await api('/api/people',{name:d.payerName.trim()}):{id:crypto.randomUUID(),name:d.payerName.trim()};people.push(payer);if(!live)saveMeta()}
  let record={...d,amount,desc:d.desc.trim(),id:d.requestId,project,payerId:payer.id,recorder:profile.nickname,photos:[...receiptData],status:['return','fund'].includes(d.type)?'免附':receiptData.length?'待審核':'待補件'};
- if(live){record=await api('/api/entries',record);const data=await api('/api/bootstrap');rememberBootstrap(data);records=await hydrateRecords(data.records);people=data.people;}
+ if(live){try{const saved=await api('/api/entries',record);record={...saved,photos:[...receiptData]};records=[...records.filter(item=>item.id!==record.id),record]}catch(writeError){let data;try{data=await api('/api/bootstrap')}catch{throw writeError}const saved=data.records.find(item=>item.id===record.id);if(!saved)throw writeError;record={...saved,photos:[...receiptData]};records=[...records.filter(item=>item.id!==record.id),record];people=data.people;PROJECTS=data.projects;toast('這筆已入帳，系統已自動確認。')}}
  else{records.push(record);if(!persist()){records.pop();throw Error('裝置儲存空間不足，請減少照片後再試。')}}
  state.project=project;state.person=payer.id;state.last=record;state.draft=null;receiptData=[];submitting=false;navigate('success');
  }catch(err){document.querySelector('#form-error').textContent=err.message;btn.disabled=false;btn.textContent=live?'重試同步 Sheets':'儲存這筆試填'}finally{submitting=false}
