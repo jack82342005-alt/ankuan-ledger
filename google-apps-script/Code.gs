@@ -51,6 +51,13 @@ function hex_(bytes){return bytes.map(b=>('0'+(b&255).toString(16)).slice(-2)).j
 function hash_(v){return hex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,JSON.stringify(v)));}
 function text_(value,max){const s=String(value||'').trim();if(!s||s.length>max||/[\u0000-\u001f\u007f]/.test(s))throw Error('欄位格式不正確。');return s;}
 function safe_(value){const s=String(value||'');return /^[=+\-@]/.test(s)?"'"+s:s;}
+function auditNote_(value){
+  const note=String(value||'');if(!note)return{};
+  try{return JSON.parse(note)}catch(ignored){}
+  const id=note.match(/交易編號：([\w-]+)/),recorder=note.match(/登記者：([^\n]+)/);
+  return{ankuanId:id?id[1]:'',recorder:recorder?recorder[1].trim():''};
+}
+function visibleAuditNote_(id,actor){return '網站記帳資料\n登記者：'+actor.nickname+'\n交易編號：'+id;}
 function ensureCols_(sheet,count){if(sheet.getMaxColumns()<count)sheet.insertColumnsAfter(sheet.getMaxColumns(),count-sheet.getMaxColumns());}
 function meta_(book){let sheet=book.getSheetByName(META_SHEET);if(!sheet){sheet=book.insertSheet(META_SHEET);sheet.appendRow(['交易編號','案件','登記列','款項人編號','登記者暱稱','登記者信箱','同步進度','原始請求雜湊','建立時間','照片檔案','補件請求']);sheet.hideSheet();}return sheet;}
 function metaRows_(book){const s=meta_(book);return s.getLastRow()<2?[]:s.getRange(2,1,s.getLastRow()-1,11).getValues();}
@@ -64,7 +71,7 @@ function bootstrap_(book){
     const sheet=book.getSheetByName(p.id);ensureCols_(sheet,25);
     const rows=sheet.getRange(13,1,Math.max(1,sheet.getLastRow()-12),10).getValues();const notes=sheet.getRange(13,1,rows.length,1).getNotes();
     rows.forEach((r,i)=>{if(!r[0]||!r[1]||!r[2]||!r[5])return;const entryType=Object.keys(TYPE_LABELS).find(k=>TYPE_LABELS[k]===r[2]);if(!entryType)return;
-      let audit={};try{audit=JSON.parse(notes[i][0]||'{}')}catch(ignored){}const payer=people.find(person=>person.id===audit.payerId)||people.find(person=>person.name===String(r[1]));if(!payer)return; const id=String(audit.ankuanId||'manual-'+sheet.getSheetId()+'-'+(i+13)),m=byId[id],files=m?JSON.parse(m[9]||'[]'):[];
+      const audit=auditNote_(notes[i][0]);const payer=people.find(person=>person.id===audit.payerId)||people.find(person=>person.name===String(r[1]));if(!payer)return; const id=String(audit.ankuanId||'manual-'+sheet.getSheetId()+'-'+(i+13)),m=byId[id],files=m?JSON.parse(m[9]||'[]'):[];
       records.push({id,project:p.id,payerId:payer.id,date:r[0] instanceof Date?Utilities.formatDate(r[0],'Asia/Taipei','yyyy-MM-dd'):String(r[0]).replace(/\//g,'-'),type:entryType,desc:String(r[3]),category:String(r[4]),amount:Number(r[5]),payment:String(r[6]),status:String(r[8]),note:String(r[9]),recorder:String(audit.recorder||'Sheets 登記'),photos:files.map(f=>'/api/photos/'+f),syncStatus:m?m[6]:'done'});
     });
   });return{projects,people,records};
@@ -88,13 +95,13 @@ function saveEntry_(book,data,actor,env){
   if(m[6]==='done')return recordResult_(data,m);
   const images=savePhotos_(book,data.id,data.photos||[],data,payer,env);
   m[9]=JSON.stringify(images);meta.getRange(mi+2,10).setValue(m[9]);
-  let row=Number(m[2]);const found=findLedgerRow_(sheet,data.id,true);if(found)row=found;let note={};try{note=JSON.parse(sheet.getRange(row,1).getNote()||'{}')}catch(ignored){}const existingId=String(note.ankuanId||'');
+  let row=Number(m[2]);const found=findLedgerRow_(sheet,data.id,true);if(found)row=found;const note=auditNote_(sheet.getRange(row,1).getNote()),existingId=String(note.ankuanId||'');
   if(existingId&&existingId!==data.id)throw Error('預留列已被其他交易占用，請聯絡管理者。');
   if(!existingId&&sheet.getRange(row,1,1,10).getValues()[0].some(v=>v!==''))throw Error('預留列已有手動資料，請聯絡管理者。');
   const status=data.type==='return'||data.type==='fund'?'免附':images.length?'待審核':'待補件';
   const date=new Date(data.date+'T12:00:00+08:00');
   
-  sheet.getRange(row,1).setNumberFormat('yyyy/mm/dd').setNote(JSON.stringify({ankuanId:data.id,recorder:actor.nickname,recorderEmail:actor.email,payerId:payer.id,createdAt:m[8]}));
+  sheet.getRange(row,1).setNumberFormat('yyyy/mm/dd').setNote(visibleAuditNote_(data.id,actor));
   sheet.getRange(row,1,1,10).setValues([[date,safe_(payer.name),TYPE_LABELS[data.type],safe_(data.desc),safe_(data.category),data.amount,safe_(data.payment),images.map(id=>'https://drive.google.com/file/d/'+id+'/view').join('\n'),status,safe_(data.note)]]);
   SpreadsheetApp.flush();
   m[6]='done';meta.getRange(mi+2,7).setValue('done');return recordResult_({...data,status},m);
@@ -131,5 +138,5 @@ function addReceipts_(book,data,actor,env){
   sheet.getRange(row,8,1,2).setValues([[files.map(id=>'https://drive.google.com/file/d/'+id+'/view').join('\n'),'待審核']]);
   meta.getRange(mi+2,10,1,2).setValues([[m[9],m[10]]]);SpreadsheetApp.flush();return{ok:true};
 }
-function findLedgerRow_(sheet,id,optional){const values=sheet.getRange(13,1,Math.max(1,sheet.getLastRow()-12),1).getNotes(),index=values.findIndex(r=>{try{return JSON.parse(r[0]).ankuanId===id}catch(ignored){return false}});if(index<0){if(optional)return null;throw Error('找不到交易列。');}return index+13;}
+function findLedgerRow_(sheet,id,optional){const values=sheet.getRange(13,1,Math.max(1,sheet.getLastRow()-12),1).getNotes(),index=values.findIndex(r=>auditNote_(r[0]).ankuanId===id);if(index<0){if(optional)return null;throw Error('找不到交易列。');}return index+13;}
 function photo_(book,id){if(!/^[\w-]+$/.test(id))throw Error('照片編號錯誤。');const all=metaRows_(book);if(!all.some(m=>JSON.parse(m[9]||'[]').includes(id)))throw Error('照片不屬於公司帳本。');const blob=DriveApp.getFileById(id).getBlob();return{mime:blob.getContentType(),base64:Utilities.base64Encode(blob.getBytes())};}
