@@ -112,6 +112,9 @@ function photoSheet_(book){let s=book.getSheetByName(PHOTO_SHEET);if(!s){s=book.
 function projectFolderName_(book,projectId){const project=projects_(book).find(p=>p.id===projectId),label=project&&project.name&&project.name!==projectId?projectId+'｜'+project.name:projectId;return String(label).replace(/[\\/:*?"<>|#%\u0000-\u001f\u007f]/g,'_').slice(0,120);}
 function receiptFolder_(book,projectId,env){const root=DriveApp.getFolderById(env.getProperty('RECEIPT_FOLDER_ID')),name=projectFolderName_(book,projectId),folders=root.getFoldersByName(name);return folders.hasNext()?folders.next():root.createFolder(name);}
 function setupReceiptFolders(){const env=PropertiesService.getScriptProperties(),book=SpreadsheetApp.openById(env.getProperty('SPREADSHEET_ID'));return projects_(book).map(project=>receiptFolder_(book,project.id,env).getId());}
+function receiptOwner_(env){return String(env.getProperty('RECEIPT_OWNER_EMAIL')||'sokoiltdco@gmail.com').trim();}
+function transferReceiptOwner_(file,env){const owner=receiptOwner_(env);if(owner&&file.getOwner().getEmail()!==owner)file.setOwner(owner);return file;}
+function transferExistingReceiptOwnership(){const env=PropertiesService.getScriptProperties(),book=SpreadsheetApp.openById(env.getProperty('SPREADSHEET_ID')),result=[];projects_(book).forEach(project=>{const folder=receiptFolder_(book,project.id,env),files=folder.getFiles();while(files.hasNext()){const file=transferReceiptOwner_(files.next(),env);result.push({id:file.getId(),owner:file.getOwner().getEmail()})}});return result;}
 function savePhotos_(book,id,photos,data,payer,env){
   if(!Array.isArray(photos)||photos.length>5)throw Error('每筆最多 5 張照片。');if(!photos.length)return[];
   const folder=receiptFolder_(book,data.project,env),gallery=photoSheet_(book),files=[];
@@ -119,7 +122,7 @@ function savePhotos_(book,id,photos,data,payer,env){
     const match=String(src).match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/);if(!match)throw Error('照片格式不正確。');
     const bytes=Utilities.base64Decode(match[2]);if(bytes.length>1900000)throw Error('照片超過嵌入大小限制。');
     const filename='ankuan-'+id+'-'+index+'.'+(match[1]==='image/png'?'png':match[1]==='image/webp'?'webp':'jpg');
-    const existing=folder.getFilesByName(filename),file=existing.hasNext()?existing.next():folder.createFile(Utilities.newBlob(bytes,match[1],filename));
+    const existing=folder.getFilesByName(filename),file=transferReceiptOwner_(existing.hasNext()?existing.next():folder.createFile(Utilities.newBlob(bytes,match[1],filename)),env);
     const fileId=file.getId();files.push(fileId);
     const all=gallery.getLastRow()>1?gallery.getRange(2,9,gallery.getLastRow()-1,1).getValues():[];let offset=all.findIndex(r=>String(r[0])===fileId),row;
     if(offset<0){gallery.appendRow([id,data.project,data.date,safe_(payer.name),safe_(data.desc),data.amount,file.getUrl(),'',fileId]);row=gallery.getLastRow();}else row=offset+2;
