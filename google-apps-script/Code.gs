@@ -28,6 +28,7 @@ function doPost(e) {
       case 'addPerson':result=addPerson_(book,payload.data.name);break;
       case 'saveEntry':result=saveEntry_(book,payload.data,payload.actor,env);break;
       case 'addReceipts':result=addReceipts_(book,payload.data,payload.actor,env);break;
+      case 'deleteEntry':result=deleteEntry_(book,payload.data,payload.actor);break;
       case 'photo':result=photo_(book,payload.data.id);break;
       default:throw Error('未知操作。');
     }
@@ -137,6 +138,18 @@ function addReceipts_(book,data,actor,env){
   const files=[...new Set(existing.concat(added))];m[9]=JSON.stringify(files);requests[data.requestId]=digest;m[10]=JSON.stringify(requests);
   sheet.getRange(row,8,1,2).setValues([[files.map(id=>'https://drive.google.com/file/d/'+id+'/view').join('\n'),'待審核']]);
   meta.getRange(mi+2,10,1,2).setValues([[m[9],m[10]]]);SpreadsheetApp.flush();return{ok:true};
+}
+function deleteEntry_(book,data,actor){
+  const id=String(data.id||'');if(!/^[\w-]{8,80}$/.test(id)||id.indexOf('manual-')===0)throw Error('這筆紀錄需由管理者在 Sheets 刪除。');
+  const meta=meta_(book),all=metaRows_(book),mi=all.findIndex(m=>String(m[0])===id);if(mi<0)throw Error('找不到這筆網站交易。');
+  const m=all[mi],sheet=book.getSheetByName(m[1]),row=findLedgerRow_(sheet,id),files=JSON.parse(m[9]||'[]');
+  sheet.getRange(row,1,1,10).clearContent();sheet.getRange(row,1).clearNote();
+  const gallery=book.getSheetByName(PHOTO_SHEET);if(gallery&&files.length){
+    gallery.getImages().filter(img=>files.includes(String(img.getAltTextTitle()||'').replace('ankuan:',''))).forEach(img=>img.remove());
+    for(let r=gallery.getLastRow();r>=2;r--)if(files.includes(String(gallery.getRange(r,9).getValue())))gallery.deleteRow(r);
+  }
+  files.forEach(fileId=>{try{DriveApp.getFileById(fileId).setTrashed(true)}catch(ignored){}});
+  meta.deleteRow(mi+2);SpreadsheetApp.flush();return{ok:true,id};
 }
 function findLedgerRow_(sheet,id,optional){const values=sheet.getRange(13,1,Math.max(1,sheet.getLastRow()-12),1).getNotes(),index=values.findIndex(r=>auditNote_(r[0]).ankuanId===id);if(index<0){if(optional)return null;throw Error('找不到交易列。');}return index+13;}
 function photo_(book,id){if(!/^[\w-]+$/.test(id))throw Error('照片編號錯誤。');const all=metaRows_(book);if(!all.some(m=>JSON.parse(m[9]||'[]').includes(id)))throw Error('照片不屬於公司帳本。');const blob=DriveApp.getFileById(id).getBlob();return{mime:blob.getContentType(),base64:Utilities.base64Encode(blob.getBytes())};}

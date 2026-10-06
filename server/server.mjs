@@ -71,6 +71,7 @@ const server=http.createServer(async(req,res)=>{
     if(route==='/api/people')return response(res,200,await bridge('addPerson',{name:validName(data.name)},person));
     if(route==='/api/entries')return response(res,200,await bridge('saveEntry',validateEntry(data,person),person));
     if(route==='/api/receipts'){if(!/^[a-zA-Z0-9-]{8,80}$/.test(data.id)||!/^[a-zA-Z0-9-]{8,80}$/.test(data.requestId))throw Error('交易編號不正確。');return response(res,200,await bridge('addReceipts',{id:data.id,requestId:data.requestId,photos:validatePhotos(data.photos)},person));}
+    if(route==='/api/delete'){if(!/^[a-zA-Z0-9-]{8,80}$/.test(data.id))throw Error('交易編號不正確。');return response(res,200,await bridge('deleteEntry',{id:data.id},person));}
    }
    if(route==='/api/me'&&req.method==='GET')return response(res,200,person);
    if(route==='/api/bootstrap'&&req.method==='GET'){const data=bridgeConfigured?await bridge('bootstrap',{},person):{projects:[],people:[],records:[]};return response(res,200,{...data,profile:person,bridgeConfigured});}
